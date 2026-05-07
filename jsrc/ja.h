@@ -76,7 +76,7 @@
 #define axbytes(x,y)                jtaxbytes(jt,(x),(y))
 #define axbytes1(x0,x1,x2,x3,x4)    jtaxbytes1(jt,(x0),(x1),(x2),(x3),(x4))
 #define axtally(x,y)                jtaxtally(jt,(x),(y))
-// obsolete #define b0(x)                       jtb0(jt,(x))
+#define b0(x)                       jtb0(jt,(x))
 #define baddson(x,y,z)              jtbaddson(jt,(x),(y),(z))
 #define badjust(x,y)                jtbadjust(jt,(x),(y))
 #define base2(x,y)                  jtbase2(jt,(x),(y))
@@ -379,7 +379,6 @@
 #define fact(x)                     jtatomic1(jt,(x),ds(CBANG))
 #define factor(x)                   jtfactor(jt,(x))
 #define fauxblock(z) I __attribute__((aligned(CACHELINESIZE))) z[NORMAH+4]  // define a block that can be passed in to fauxvirtual.  The 4 is the max rank, and must match fauxvirtual and fauxplain
-   // the fauxblock must be declared so as to stay in scope as long as the name used to point to it (i. e. the z in fauxvirtual)
 #define fauxblockINT(z,n,r) I __attribute__((aligned(CACHELINESIZE))) z[(AKXR(r)>>LGSZI)+(n)]   // define a block, big enough to hold n atoms at rank r, for use in fauxINT/fauxBOX
 // Allocate an INT block. z is the zvalue to hold the result; v is the fauxblock to use if n INTs will fit in the fauxblock, which has rank r
 // shape is not filled in, except when rank is 1
@@ -552,8 +551,7 @@ extern void jfree4gmp(void*,size_t);
 #define hparm(x,y,z)                jthparm(jt,(x),(y),(z))
 #define hrep(x,y,z)                 jthrep(jt,(x),(y),(z))
 #define i0(x)                       ({I r; A xa=(x); if(unlikely((xa)==0))r=0;else if(likely(ISDENSETYPE(AT(xa),INT+B01))){ASSERT(!AR(xa),EVRANK); r=BIV0(xa);}else r=jti0(jt,xa); r;})  // INT/B01 quickly
-#define reb0(x)            ({I r; A xa=(x); if(unlikely(xa==0))R0; if(likely(ISDENSETYPE(AT(xa),INT+B01))){ASSERT(!AR(xa),EVRANK); r=BIV0(xa); ASSERT((r&~1)==0,EVDOMAIN)}else{RE(r=jtb0(jt,xa))} r;})  // INT/B01 quickly
-#define rei0(x)            ({I r; A xa=(x); if(unlikely(xa==0))R0; if(likely(ISDENSETYPE(AT(xa),INT+B01))){ASSERT(!AR(xa),EVRANK); r=BIV0(xa);}else{RE(r=jti0(jt,xa))} r;})  // INT/B01 quickly
+#define rei0(x)            ({I r; A xa=(x); if(unlikely((xa)==0))R0; if(likely(ISDENSETYPE(AT(xa),INT+B01))){ASSERT(!AR(xa),EVRANK); r=BIV0(xa);}else{RE(r=jti0(jt,xa))} r;})  // INT/B01 quickly
 #define iaddr(x0,x1,x2,x3)          jtiaddr(jt,(x0),(x1),(x2),(x3))
 #define icap(x)                     jticap(jt,(x),ds(CICAP))
 #define icor(x,y)                   jticor(jt,(x),(y))  
@@ -1350,8 +1348,7 @@ extern void jfree4gmp(void*,size_t);
 #define vfn(x)                      jtvfn(jt,(x))
 #define vger2(x,y,z)                jtvger2(jt,(x),(y),(z))
 #define vi(x)                       jtvi(jt,(x))
-// obsolete #define vib(x)                      jtvib(jt,(x))
-#define vib(x)                      ({A xa=(x); if(likely(xa!=0)&&unlikely(!ISDENSETYPE(AT(xa),INT))){xa=(AT(xa)&SPARSE+B01)>AR(xa)?num(BAV(xa)[0]):jtvib(jt,xa);} xa;})  // INT quickly; convert B01 dense atomic to INT
+#define vib(x)                      jtvib(jt,(x))
 #define vip(x)                      jtvip(jt,(x))
 #define virtual(x,y,z)              jtvirtual(jt,(x),(y),(z))
 #define virtualip(x,y,z)            jtvirtual(jtfg,(x),(y),(z))

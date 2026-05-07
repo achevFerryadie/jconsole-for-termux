@@ -107,7 +107,7 @@ static F2(jtovs){F12IP;A ae,ax,ay,q,we,wx,wy,x,y,z,za,ze;B*ab,*wb,*zb;I acr,ar,*
  RETF(z);
 }    /* a,"r w where a or w or both are sparse */
 
-#if 0 // obsolete
+#if 1 // obsolete
 // k is length of an atom; c is atoms/result item; m is #items to move; z is result; w->arg to move; x->area to move to; z is A block for output area; somefill is neg if there is any fill
 // result points to end+1 of area filled
 // NOTE: AS(z)[0] is overwritten
@@ -131,7 +131,7 @@ static C*jtovgmove(J jt,I k,I c,I m,A z,A w,C*x,I somefill){I d,n,p=c*m;  // p=#
 
 static F2(jtovg){F12IP;A s,z;C*x;I ar,*as,c,k,m,n,*sv,t,wr,*ws,zn;
  ARGCHK2(a,w);
- // most of this should move back to the caller so it can be outside the rank loop
+ // scaf* most of this should move back to the caller so it can be outside the rank loop
  ar=AR(a); wr=AR(w);
  // First loop: calculate zn=#result atoms, c=#atoms in result item.  We go through the loop once for each number in the result-rank, fetch m/n (the values).  For all except the first,
  // we process by finding the result axis-length and multiplying it into the total size.  The result axis-length is the larger of the arg axis lengths; the arg lengths come from the shape
@@ -320,15 +320,15 @@ DF2(jtover){F12IP;AD * RESTRICT z;I replct,framect,acr,ar,ma,mw,p,q,t,wcr,wr,zn;
   if(unlikely(_ttop+1!=jt->tnextpushp))z=EPILOGNORET(z); RETF(z);  // if nothing to pop, return z as is; otherwise we musat EPILOG in case z needs protection from the frees
  }
  // if max cell-rank>2, or an argument is empty, or (joining table/table or table/row with cells of different lengths), do general case including fill
-#if 0  // obsolete 
- // should move jtovg here, allocate the entire result at once, and loop through cells here, avoiding recopy
+#if 1  // obsolete 
+ // scaf* should move jtovg here, allocate the entire result at once, and loop through cells here, avoiding recopy
  RESETRANK; z=rank2ex(a,w,self,acr,wcr,acr,wcr,jtovg); RETF(z);  // ovg calls other functions, so we clear rank.  rank2ex does EPILOG
 #else
  // calculate number of repeats of each outer cell, and the total # cells
  I *as=AS(a), *ws=AS(w);
  I minf=MIN(af,wf), maxf=MAX(af,wf); ASSERTAGREE(as,ws,minf)   // verify frames agree
  I awn[2][2];  // for a then w, number of times to repeat this cell-1,number of times to repeat each cell
- PRODX(t,af-wf,as+wf,1) awn[1][0]=awn[1][1]=t-1; I tt; PRODX(tt,wf-af,ws+af,1) awn[0][0]=awn[0][1]=tt-1;   // count outer repeat counts for each arg (surplus frame of other arg); save as initial cell/restart counts-1
+ PRODX(t,af-wf,as+wf,1) awn[1][0]=awn[1][1]=t-1; PRODX(t,wf-af,ws+af,1) awn[0][0]=awn[0][1]=t-1;   // count outer repeat counts for each arg (surplus frame of other arg); save as initial cell/restart counts-1
  I *smaxf=AS(af>wf?a:w);   // shape of arg with longer frame, which gives # cells (could be 0)
  I ncells; PRODX(ncells,af>wf?af:wf,smaxf,1)  // total # cells: common frame * larger repeat count
 
@@ -371,7 +371,7 @@ DF2(jtover){F12IP;AD * RESTRICT z;I replct,framect,acr,ar,ma,mw,p,q,t,wcr,wr,zn;
  // for each argument, convert the shape to a sequence of copy-then-fill, referring to the length of each corresponding result-item axis
  // AS(z)[maxf+1..zr-1] is the shape of an inner result item, which must have rank 1 or higher   AS(?)[..?r-1] is the shape of an input item.  Convert shape to data/fill counts
  zs=AS(z)+zr;   // point to end of result item shape
- I aw, cr, *s; I dlen[2][RMAX+1], flen[2][RMAX+1];  // selector a/w; cell-rank a/w; shape ptr a/w; length in atoms of data to be copied for each fill section, length in atoms of each fill to be copied after the data. dlen<0 means scalar replication
+ I aw, cr, *s; I dlen[2][RMAX], flen[2][RMAX];  // selector a/w; cell-rank a/w; shape ptr a/w; length in atoms of data to be copied for each fill section, length in atoms of each fill to be copied after the data. dlen<0 means scalar replication
  for(aw=0, s=as+ar, cr=acr;aw<2;++aw, s=ws+wr, cr=wcr){  // for a, then w...
   UI prevdsize, prevfsize;  // previous copy section's parameters, for loop reduction.  Init to 'cannot add to previous'
   I csize=1, dsize=1, zx, zfx;  // will accumulate full size of cell including fill; will accumulate unfilled axes; index to shape, running backwards; index to coalesced fill section, running forwards from 0
@@ -399,7 +399,7 @@ DF2(jtover){F12IP;AD * RESTRICT z;I replct,framect,acr,ar,ma,mw,p,q,t,wcr,wr,zn;
   for(aw=0;aw<2;++aw){  // for a, then w
    // move one cell of a/w, with fill
    I adv=SGNTO0(--awn[aw][0]);   // get an early start reading the repeat count.  This must settle before end-of-loop so we don't have unknown addresses plugging the write queue
-   I rx, ndx[RMAX+1];  // odometer into copy sections
+   I rx, ndx[RMAX];  // odometer into copy sections
    C *s=awv[aw][0];  // init input pointer to the cell data
    I dl=dlen[aw][0]<<klg, fl=flen[aw][0]<<klg;  // len of first level of data and fill
    for(rx=0;rx<cmax[aw];++rx)ndx[rx]=0;   // init all levels
@@ -447,10 +447,10 @@ DF2(jtstitch){F12IP;I ar,wr; A z;
  R stitchsp2(a,w);  // sparse rank <=2 separately
 }
 
-F1(jtlamin1){F12IP;I* RESTRICT s,* RESTRICT v,wcr,wf,wr; 
+F1(jtlamin1){F12IP;A x;I* RESTRICT s,* RESTRICT v,wcr,wf,wr; 
  ARGCHK1(w);
  wr=AR(w); wcr=(RANKT)jt->ranks; wcr=wr<wcr?wr:wcr; RESETRANK; wf=wr-wcr;
- fauxblockINT(wfaux,4,1); A x; fauxINT(x,wfaux,1+wr,1) v=IAV(x);
+ fauxblockINT(wfaux,4,1); fauxINT(x,wfaux,1+wr,1) v=IAV(x);
  s=AS(w); MCISH(v,s,wf); v[wf]=1; MCISH(v+wf+1,s+wf,wcr);  // frame, 1, shape - the final shape
  R jtreshape(jtfg,x,w);   // scaf do the virtual here - too much overhead in reshape
 }    /* ,:"r w */

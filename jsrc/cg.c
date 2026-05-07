@@ -223,7 +223,7 @@ static DF2(jtcasei12){F12IP;A vres,z;I gerit[128/SZI],ZZFLAGWORD;
     sortw=w;
    }
    // create a virtual block for the input(s).
-   fauxblock(virtwfaux); fauxblock(virtafaux); A virtw,virta;
+   A virtw,virta; fauxblock(virtwfaux); fauxblock(virtafaux);
    I virtr=(wr|REPSGN(wr))+1;   // rank of a list of cells, or 0 if original arg was an atom
    fauxvirtual(virtw,virtwfaux,sortw,virtr,ACUC1) MCISH(AS(virtw),AS(w),virtr); AN(virtw)=1;  // in case atom, set AN to 1
    // Create the size of a cell in atoms.  If the original argument was an atom (?r=IMAX), use 0 for the cellsize so that the cell is repeated

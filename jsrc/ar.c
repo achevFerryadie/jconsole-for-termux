@@ -1117,7 +1117,8 @@ static DF2(jtfold12){F12IP;A z,vz;
  UI zzalloc=64-(AKXR(1)>>LGSZI); zzalloc=MIN(nitems,zzalloc); zzalloc=dmfr&STATEFWD+STATEREV?zzalloc:16-(AKXR(1)>>LGSZI); zzalloc=dmfr&STATEMULT?zzalloc:1;  // initial result allo.  zzalloc is #boxes in zz; AN(zz) is # valid
  A zz; GATV0E(zz,INT,zzalloc,dmfr&STATEMULT?1:0,goto exitpop;) AT(zz)=BOX; AFLAG(zz)=BOX&RECURSIBLE; AN(zz)=0;   // alloc recursive result area.  avoid init of BOX area
  // Track the items of y (x arg into v) using a virtual arg
- fauxblock(virtwfaux); A virtw;  // virtual block for items of y, if needed
+ fauxblock(virtwfaux);
+ A virtw;  // virtual block for items of y, if needed
  I wstride;  // dist between items of y, in bytes, pos/neg/0 based on fwd/rev
  if(likely((dmfr&STATEFWD+STATEREV)!=0)){
   // fwd/reverse fold, the usual case
@@ -1126,13 +1127,13 @@ static DF2(jtfold12){F12IP;A z,vz;
    // Create the cell to run u on: one given argument or a cell of fills
    if(nitems==1){
     // 1 item.  Could come from x (if y is empty) or y.  Apply u to it, to give the final result
-    ++foldinfo.exestats[1]; foldinfo.zstatus=0; dfv1(z,dmfr&STATEDYAD?a:head(w),uself);
+    ++foldinfo.exestats[0]; foldinfo.zstatus=0; dfv1(z,dmfr&STATEDYAD?a:head(w),uself);  // scaf* should be stats[1]
    }else{
     // 0 items (necessarily monadic).  Error if fold multiple.  Create a neutral for v from an item of y, and apply u to it
     ASSERT(!(dmfr&STATEMULT),EVDOMAIN)  // empty multiple fold is < 0 applications of v, error
     A fillcell=jtred0(jt,w,vself);  // a neutral with the shape of an item of y
     ASSERTGOTO(fillcell!=0,EVDOMAIN,exitpop)   // error if v has no neutral
-    ++foldinfo.exestats[1]; foldinfo.zstatus=0; dfv1(z,fillcell,uself);
+    ++foldinfo.exestats[0]; foldinfo.zstatus=0; dfv1(z,fillcell,uself);   // scaf* should be stats[1]
    }
    // we have applied u to the single cell.
    ASSERTGOTO(!(foldinfo.zstatus&0b01111),EVNORESULT,exitpop)  // z stopped iteration and no result was created: that's a no result error
@@ -1283,7 +1284,7 @@ DF2(jtfoldZ2){F12IP;
  ASSERT(BETWEENC(type,-3,1),EVINDEX)  //  requested action index must be in range
  I y;
  if(type==-3){y=rei0(w); y=jt->afoldinfo->exestats[0]>=y;  // set y if current v count high enough
- }else y=reb0(w);  // verify boolean
+ }else RE(y=jtb0(jt,w));  // verify boolean scaf* reb0
  if(y){
   I ymask=1<<(type-(-3));  // convert type to one-hot
   jt->afoldinfo->zstatus|=ymask;  // accumulate zstatus

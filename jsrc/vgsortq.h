@@ -35,6 +35,7 @@ SORTQSCOPE void SORTQNAME(SORTQTYPE *v, I n){
    case -1: case 0:;
    }
    // that batch is sorted; move to the next
+batchfinished: ; // come here if the entire partition is known to be in order
    if(--stackp<0)R;  // back up stack; if we're finishing the last call, we're through
    l=stack[stackp][0]; r=stack[stackp][1];  // resume the next 
   }
@@ -77,14 +78,13 @@ SORTQSCOPE void SORTQNAME(SORTQTYPE *v, I n){
 
    if(!(cstk&(cstk+1))) {
     // Here there is no 0-bit with a higher 1-bit, i. e. no exchange to be  performed.  We have to check this separately because CT[LT]ZI is unpredictable on all-0 input.
-#if 0 // obsolete
     // The cases are: 00000 (lower partition empty), 11111 (upper partition empty), 00111 (no partition required)
     if(cstk==0){
      // The case 00000 is ominous: we might be handling a partition with many repeated values (equal to the pivot).  If we don't take action, all those repeated values will be mapped to
      // the upper partition and we will enter a worst-case where we partition only one item each pass.  To prevent that, we will repartition using the same pivot, but
      // this time moving the equal values to the lower partition.  If this produces a better partition, we will use it.  If not, we must be processing a block of
      // ALL equal values, and we stop partitioning.  We thus process a block with many equals as follows: scan & partition to strip elements lower than the equals; scan, rescan, & partition to
-     // strip elements higher than the equals; scan & rescan to detect the all-equals case & stop partitioning  replace this with the pivot-patitioning below
+     // strip elements higher than the equals; scan & rescan to detect the all-equals case & stop partitioning  scaf* replace this with the pivot-patitioning below
      DQ(r-l, cstk=2*cstk+(v0[i]<=pivot);)  // this time equality moves to the lower side (cstk is already 0 to start)
      // There MUST have been at least 1 equal value, because the pivot was the median of three and yet nothing compared low the first time; one value at least must compare equal.
      if(!(cstk&(cstk+1))) {
@@ -96,27 +96,25 @@ SORTQSCOPE void SORTQNAME(SORTQTYPE *v, I n){
      // ...falling through if there are exchanges after a rescan
     }else{
      // The lower partition is not empty.  Set the partition pointer above the lowest 1-bit
-     UI4 xchgx04=CTLZI(cstk); xchgx0=xchgx04; xchgx1=xchgx0+1;  // low partition always ends right below the high - no middle partition.
+     UI4 xchgx04=CTLZI(cstk); xchgx0=xchgx04; xchgx1=xchgx0+1;  // low partition always ends right below the high - no middle partition
      goto finmedxchg;
     }
     // ...falling through if there are exchanges after a rescan
-#else
-    xchgx0=cstk==0?-1:CTLZI(cstk); xchgx1=xchgx0+1; // low partition always ends right below the high - no middle partition.  The bad case of cpmpletely empty partition is handled in common code below
-#endif
-   }else{
-    // There is at least 1 exchange.  Do them.  We swap the highest 1-bit with the lowest 0-bit, and complement both bits.  When the pointers cross, they are left after the cross pointing to the
-    // end of the opposite partition.  So, we use xchgx1 for the left side, xchgx0 for the right side.
-    while(1){
-     // find the exchange points.  This is the dependency loop (actually the CTTZI is not part of the dependency).  The cstk^= could be replaced with cstk&=(1<<xchgx0)-1 if that would
-     // generate a _bzhi_u64 instruction.  After we get the exchange points we complement the bits of the exchange.  This guarantees that the number of set bits is invariant.
-     // Therefore, when we terminate xchgx0 will always be the end of the low side and xchgx1 that of the high side
-     UI4 xchgx04=CTLZI(cstk); xchgx0=xchgx04; xchgx1=CTTZI(~cstk); cstk|=cstk+1; cstk^=(I)1<<xchgx0;  // get indexes of the swaps
-     if(xchgx0<xchgx1)break;  // terminate when the swap would be retrograde
-     SORTQTYPE temp=v0[xchgx0]; v0[xchgx0]=v0[xchgx1]; v0[xchgx1]=temp;  // do the exchange
-    }
    }
 
-   // After all the exchanges the exchange pointers xchgx[01] are set to finish the partitions
+   // There is at least 1 exchange.  Do them.  We swap the highest 1-bit with the lowest 0-bit, and complement both bits.  When the pointers cross, they are left after the cross pointing to the
+   // end of the opposite partition.  So, we use xchgx1 for the left side, xchgx0 for the right side.
+   while(1){
+    // find the exchange points.  This is the dependency loop (actually the CTTZI is not part of the dependency).  The cstk^= could be replaced with cstk&=(1<<xchgx0)-1 if that would
+    // generate a _bzhi_u64 instruction.  After we get the exchange points we complement the bits of the exchange.  This guarantees that the number of set bits is invariant.
+    // Therefore, when we terminate xchgx0 will always be the end of the low side and xchgx1 that of the high side
+    UI4 xchgx04=CTLZI(cstk); xchgx0=xchgx04; xchgx1=CTTZI(~cstk); cstk|=cstk+1; cstk^=(I)1<<xchgx0;  // get indexes of the swaps
+    if(xchgx0<xchgx1)break;  // terminate when the swap would be retrograde
+    SORTQTYPE temp=v0[xchgx0]; v0[xchgx0]=v0[xchgx1]; v0[xchgx1]=temp;  // do the exchange
+   }
+
+finmedxchg:  // exchanges if any are done, and xchgx0/xchgx1 are set
+   // After all the exchanges the exchange pointers are set to finish the partitions
    // bias the exchange points back to the range in the original input
    xchgx0+=l; xchgx1+=l;
   }else{
@@ -126,7 +124,7 @@ SORTQSCOPE void SORTQNAME(SORTQTYPE *v, I n){
    UI cstk0=0, cstk1=0; I cstklsb0=BW, cstklsb1=BW;
    // initialize comparison input pointers (input->next value to compare).  Prebias them by BW so that the output pointer is in0+cstklsb0  or  in1-cstklsb0
    I in0=l-BW; I in1=r-1+BW;  // the last position is notionally the swapped-out pivot
-   xchgx0=0; xchgx1=r;  // xchgx0 is the next left exchange position, xchgx1 is the next right exchange position, so that we ignore any step past the crossing
+   xchgx0=0; xchgx1=r;  // remember the last successful exchange, so that we ignore any step past it
    // loop till partitioning completed
    // At this point we know that if cstk? is 0, cstklsb? has been set to BW.  Also, at least one cstk? is 0
    while(1){
@@ -192,9 +190,9 @@ SORTQSCOPE void SORTQNAME(SORTQTYPE *v, I n){
    // was not made because those values were already in position.  Recursion will be to points including those values.  Any points between those values (exclusive) must be equal to the pivot
  partdone:
    // back up the pointers to the last successful exchange if any, since that exchange is known to have stored a value for that side
-   xchgx0=MAX(xchgx0,in1-cstklsb1); xchgx1=MIN(xchgx1,in0+cstklsb0);
+   xchgx0=MAX(xchgx0,in1-cstklsb1); xchgx1=MIN(xchgx1,in0+cstklsb0);  // Now xchgx0 is the end of the left side, and xchgx1 of the right
   }
-  // partitioning is complete. xchgx0 is the end+1 of the left side, and xchgx1 start-1 of the right (=pivot position)
+  // partitioning is complete
 
   // exchange the end of the array with the start of the right side
   v[r]=v[xchgx1]; v[xchgx1]=pivot;
@@ -204,7 +202,7 @@ SORTQSCOPE void SORTQNAME(SORTQTYPE *v, I n){
 
   // if the partitioning is very bad, it is probably because the partition is almost all the same value, which is the pivot.  Since pivots can go to either side, one side may move much faster - 64x faster - than the other,
   // leaving an imbalance.  To ameliorate the problem, we go through the longer side in this case, swapping the pivots to the middle of the partition
-  if(unlikely((MAX(lenl,lenr)>>3)>=MIN(lenl,lenr))){   // check is one side 8x larger than the other.  We will abort the copy if the long side is not >50% pivots; = to ensure we go here when one side is completely empty
+  if(unlikely((MAX(lenl,lenr)>>3)>MIN(lenl,lenr))){   // check is one side 8x larger than the other.  We will abort the copy if the long side is not >50% pivots
    if(lenl>lenr){
     // left is much larger than right.  Move values that equal the pivot to the center partition, where they will stay undisturbed.  Make sure the partition has a lot of pivot values
     DQ(lenl+1, xchgx0=i; if(v[l+i]!=pivot)break;) xchgx0+=l;  // first discard trailing pivot values, leaving xchgx0 at a non-pivot

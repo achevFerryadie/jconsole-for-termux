@@ -1,16 +1,24 @@
-J is a high-level, general-purpose programming language that is particularly suited to the mathematical, statistical, and logical analysis of data. It is a powerful tool for developing algorithms and exploring problems that are not already well understood.
+[jconsole](https://code.jsoftware.com/wiki/Guides/jconsole) for Termux. This is a fork of [jsource](https://github.com/jsoftware/jsource) to build on Termux.
 
-J is written in portable C and is available for Windows, Linux, Mac, iOS, Android and Raspberry Pi. J can be installed and distributed for free. The [source](https://github.com/jsoftware/jsource)
-is provided under both commercial and GPL 3 licenses.
+## Requirements
 
-J is easy to install, has a small footprint, and has direct access to tutorials and documentation.
+```sh
+pkg install clang make
+```
 
-The latest release is J9.7 with several new language features and performance improvements, available from April 2026. See [J9.7 Release Notes](https://code.jsoftware.com/wiki/System/ReleaseNotes/J9.7).
+## Build
 
-A [J9.8 beta](https://code.jsoftware.com/wiki/System/ReleaseNotes/J9.8) is available from April 2026.
+```sh
+jplatform=raspberry j64x=j64 ./make2/build_libj.sh
+jplatform=raspberry j64x=j64 ./make2/build_jconsole.sh
+cp jlibrary/bin/profile.ijs bin/raspberry/j64/
+```
 
-Documentation can be found in the [J wiki](https://code.jsoftware.com/wiki).
+The results will be in `/bin/raspberry/j64/`.
 
-To download and install see [Installation](https://code.jsoftware.com/wiki/System/Installation).
+## Acknowledgement
 
-To build the J engine on your platform, see overview.txt. The various distributions for supported platforms are built with github actions.
+1. I may have missed deleting irrelevant files from the `jsource` (such as sources for other platforms), or accidentally deleted important ones.
+Please let me know or fix it yourself if you notice.
+2. I'm not going to mantain this.
+This was just a solution of my own problem and I want to share it in case someone has the same problem.

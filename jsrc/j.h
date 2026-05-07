@@ -743,13 +743,14 @@ struct jtimespec jmtfclk(void); //'fast clock'; maybe less inaccurate; intended 
 
 #define TOOMANYATOMSX 47  // more atoms than this is considered overflow (64-bit).  i.-family can't handle more than 2G cells in array.
 
-#define MINVIRTSIZE(t) ((t)&DIRECT?32:2)   // t is type; result min len that is enough to create a virtual block.  must have this many atoms to be virtual.  This is just a suggestion, and not honored everywhere
+#define MINVIRTSIZE 32  // must have this many atoms to be virtual.  This is just a suggestion, and not honored everywhere
    // Whether we should do so is a tricky question.  Surely, if the argument is big, since we may save a large indexed copy.
    // If the argument is small, the virtual is still better if it doesn't have to be realized; but it might be
-   // realized in effect if it is unavailable for inplacing.  An indirect should usually be virtualized to save ra/fa on individual blocks
+   // realized in effect if it is unavailable for inplacing.  OTOH, if the argument is indirect the virtual does
+   // not require individual usecounting of the atoms.
+   //
    // It would be good if we could know if the result is going to be assigned, perhaps jt->zombieval=1.  We could
    // suppress the virtual then.
-   // The thresholds above suggest that a ra/fa of the backer takes as long as copying 32 atoms.
 
 // Debugging options
 
@@ -1785,8 +1786,8 @@ if(likely(!((I)jtfg&JTWILLBEOPENED)))z=EPILOGNORET(z); RETF(z); \
 #define JMC(d,s,l,bytelen) JMCcommon(d,s,l,bytelen,endmask,JMCDECL(endmask),JMCSETMASK(endmask,ll,bytelen))  //   0->1111 1->1000 3->1110 bytelen has already been applied here
 #define JMCR(d,s,l,bytelen,maskname) JMCcommon(d,s,l,bytelen,maskname,,)
 #else
-#define JMC(d,s,l,bytelen) MC(d,s,(bytelen)?(l):(((l)+(SZI-1))&-SZI));   // it's better to round up the length than to require the byte store
-#define JMCR(d,s,l,bytelen,maskname) JMC(d,s,l,bytelen)
+#define JMC(d,s,l,bytelen) MC(d,s,l);
+#define JMCR(d,s,l,bytelen,maskname) MC(d,s,l);
 #define JMCDECL(mskname)
 #define JMCSETMASK(mskname,l,bytelen)
 #endif
@@ -2184,14 +2185,12 @@ if(likely(type _i<3)){z=(type _i<1)?1:(type _i==1)?_zzt[0]:_zzt[0]*_zzt[1];}else
 #if SY_64
 // I have been unable to make clang produce a simple loop that doesn't end with a backward branch.  So I am going to handle ranks 0-2 here and call a subroutine for the rest
 #define PRODX(z,n,v,init) \
- {I nn=(n), temp=(init), *_zzt=(v); \
-  if(likely(nn<3)){  /* must use temp because init may depend on z */ \
-   _zzt+=nn-2; z=(I)&oneone; _zzt=nn>=1?_zzt:(I*)z; z=nn>1?(I)_zzt:z;   /* set up pointers to args, and init value */ \
-   z=((I*)z)[0]; if(unlikely(z==0))goto had0##z; DPMULDZ(z,_zzt[1],z) if(unlikely(_zzt[1]==0))goto had0##z; DPMULDZ(z,temp,z)   /* no error if any nonzero */ \
-  }else{z=temp; DQ(nn, DPMULDZ(z,_zzt[i],z) if(unlikely(_zzt[i]==0))goto had0##z;)} /* error if overflow */ \
-  if(likely(temp!=0))ASSERT(z!=0,EVLIMIT) had0##z:; \
-}
-// obsolete   }else{DPMULDE(init,prod(nn,v),z) RE(0)} /* error if error inside prod */ 
+ {I nn=(n); \
+  if(likely(nn<3)){I temp=(init);  /* must use temp because init may depend on z */ \
+   I *_zzt=(v); _zzt+=nn-2; z=(I)&oneone; _zzt=nn>=1?_zzt:(I*)z; z=nn>1?(I)_zzt:z;   /* set up pointers to args, and init value */ \
+   z=((I*)z)[0]; if(likely(z!=0)){DPMULDZ(z,_zzt[1],z); if(likely(_zzt[1]!=0)){DPMULDZ(z,temp,z);if(likely(temp!=0)){ASSERT(z!=0,EVLIMIT)}}}  /* no error if any nonzero */ \
+  }else{DPMULDE(init,prod(nn,v),z) RE(0)} /* error if error inside prod */ \
+ }
 #else
 #define PRODX(z,n,v,init) RE(z=mult(init,prod(n,v)))
 #endif
@@ -2435,11 +2434,12 @@ if(unlikely(!_mm256_testz_pd(sgnbit,mantis0))){  /* if mantissa exactly 0, must 
 #define POPMSGS jt->emsgstate=_e;  // restore previous state
 #define MAYBEWITHMSGSOFF(offcond,stmt) {MAYBEPUSHNOMSGS(offcond) stmt POPMSGS}  // execute stmt, optionally with msgs off.  Use only around internal functions
 #define WITHMSGSOFF(stmt) MAYBEWITHMSGSOFF(1,stmt)  // execute stmt with debug/eformat turned off; restore at end.  Sets jt->jerr if error, and should be used when calling possible user code
-// scaf! in next line, remove TRAPPING if TRACEDB is not set, so that an error will offer post-mortem debug
+// scaf* in next line, remove TRAPPING if TRACEDB is not set, so that an error will offer post-mortem debug
 #define MAYBEWITHDEBUG(dbg,jt,stmt) if(dbg){stmt}else{UC _d=jt->uflags.trace&TRACEDB;jt->uflags.trace&=~TRACEDB; \
  US _e=jt->emsgstate; jt->emsgstate|=EMSGSTATENOTEXT|EMSGSTATENOLINE|EMSGSTATENOEFORMAT|EMSGSTATETRAPPING; \
  stmt jt->uflags.trace=_d|(jt->uflags.trace&~TRACEDB); jt->emsgstate=_e;}  // execute stmt with debug/eformat turned off; restore at end.  Sets jt->jerr if error, and should be used when calling possible user code
 #define WITHDEBUGOFF(stmt) MAYBEWITHDEBUG(0,jt,stmt)
+// scaf* in next line, remove TRAPPING if TRACEDB is not set, so that an error will offer post-mortem debug
 #define WITHEFORMATDEFERRED(stmt) {/* obsolete UC _d=jt->uflags.trace&TRACEDB;jt->uflags.trace&=~TRACEDB; */ \
  US _e=jt->emsgstate; jt->emsgstate|=EMSGSTATENOTEXT|EMSGSTATENOLINE|EMSGSTATENOEFORMAT; \
  stmt /* obsolete jt->uflags.trace=_d|(jt->uflags.trace&~TRACEDB);*/ US _f=jt->emsgstate; jt->emsgstate=_e|(_f&EMSGSTATEUSERMSG); \
